@@ -1,27 +1,28 @@
-# Consolidated dependency list, synthesized from imports actually used across
-# batch_inference, data-cleaning, and yolonas-training. None of the original
-# three projects had a dependency manifest, so nothing here is pinned except
-# super-gradients (see note below). Test and pin versions for your environment
-# before relying on this in production.
+# Dependency list for the defect-detection pyenv-virtualenv (Python 3.10.19,
+# matching the reference "yolonas-training" pyenv env - super-gradients only
+# officially supports up to Python 3.10). Versions are pinned to match what's
+# actually proven working in the two reference environments this repo was
+# consolidated from (pyenv envs "yolonas-training" and "data-cleaning"),
+# filtered down to packages actually imported by code in this repo. Anything
+# not listed here (torchvision, onnx, hydra-core, etc.) is a transitive
+# dependency pulled in automatically by super-gradients.
 
-torch
-# super-gradients==3.7.1 was the one version seen pinned anywhere in the
-# source projects (in a since-excluded legacy notebook) - a reasonable
-# starting point, uncomment to pin:
-super-gradients
-opencv-python
-sahi
-pyyaml
-tqdm
-pillow
-pandas
-matplotlib
-seaborn
-tensorboard
-numpy
+torch==2.9.1
+super-gradients==3.7.1
+opencv-python==4.11.0.86
+sahi==0.11.36
+pyyaml==6.0.3
+tqdm==4.67.1
+pillow==12.0.0
+pandas==2.3.3
+matplotlib==3.10.7
+numpy==1.23.0
+# not imported directly, but required by super-gradients' COCO-format
+# dataloaders/metrics (silently degrades to a warning if missing, so it's
+# easy to miss without actually running training)
+pycocotools==2.0.10
 
 # Needed to run the .ipynb notebooks (train.ipynb, data-cleaning.ipynb,
-# kelvin_bbox_cleaning.ipynb) - not an import in the original code, added
-# because the pipeline can't be run without it.
+# clean_to_3class.ipynb) - not imported by any script directly.
 jupyter
-ipykernel
+ipykernel==7.1.0
