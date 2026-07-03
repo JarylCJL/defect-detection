@@ -93,6 +93,13 @@ python batch_inference.py --config config.yaml
 
 Uses a dedicated `pyenv-virtualenv` named `defect-detection` on Python 3.10.19 (the same Python version as the reference `yolonas-training` env — `super-gradients` only officially supports up to 3.10). The `.python-version` file at the repo root auto-activates it via pyenv in any subdirectory.
 
+**On a new machine**, run the bootstrap script — it installs `pyenv` itself if missing, installs Python 3.10.19, creates the `defect-detection` virtualenv, and installs `requirements.txt`, so you don't need to know any of the above up front:
+```bash
+./setup_venv.sh
+```
+If this is the first time `pyenv` has been installed on the machine, its shell hooks only take effect in a new shell session — the script will tell you to restart your terminal and rerun it once.
+
+**If pyenv + the virtualenv already exist** (e.g. this machine), you can skip straight to:
 ```bash
 pyenv virtualenv 3.10.19 defect-detection   # one-time setup
 cd defect-detection                         # auto-activates via .python-version
