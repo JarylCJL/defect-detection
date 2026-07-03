@@ -1,0 +1,31 @@
+# Data and model payloads are deliberately excluded - see readme.md for the
+# migration plan. Directory placeholders (.gitkeep) are still tracked.
+/data/data_raw/*
+/data/data-cleaned/*
+/data/data-tiled/*
+/data/data-5defect/*
+!/data/*/.gitkeep
+
+/models/*
+!/models/.gitkeep
+
+/batch_inference/input-data/*
+!/batch_inference/input-data/.gitkeep
+/batch_inference/output-preds/*
+!/batch_inference/output-preds/.gitkeep
+
+/yolonas-training/data/train/images/*
+/yolonas-training/data/train/labels/*
+/yolonas-training/data/val/images/*
+/yolonas-training/data/val/labels/*
+/yolonas-training/data/test/images/*
+/yolonas-training/data/test/labels/*
+!/yolonas-training/data/**/.gitkeep
+
+# local scratch staging created by merge_datasets.py, not part of the tracked layout
+/yolonas-training/datasets/
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/

@@ -1,0 +1,37 @@
+# Batch inference configuration
+input_data: input-data/test-dataset-166/images
+output_dir: output-preds
+
+# Model settings
+model_type: yolo-nas-m
+# NOTE: models/ is now the shared top-level directory (../models from this project).
+# SuperGradients' Trainer writes checkpoints to {models}/{EXPERIMENT_NAME}/RUN_*/...
+# where EXPERIMENT_NAME="building_defect_yolo_nas_m" (set in yolonas-training/train.ipynb).
+# Update <RUN_ID> below once a training run exists in the new models/ location.
+checkpoint_path: ../models/building_defect_yolo_nas_m/<RUN_ID>/ckpt_best.pth
+num_classes: 5
+class_names:
+  - corrosion
+  - crack
+  - spall
+  - plant_growth
+  - crack_glass
+
+# Inference settings
+conf_threshold: 0.3
+nms_iou_threshold: 0.5
+
+# Tiled inference (SAHI)
+use_tiled_inference: true
+tiled_inference:
+  slice_height: 2048
+  slice_width: 2048
+  overlap_height_ratio: 0.5
+  overlap_width_ratio: 0.5
+  postprocess_match_threshold: 0.25
+  device: null
+
+# Post-detection annotation merge
+merge_annotations:
+  enabled: true
+  iou_threshold: 0.1

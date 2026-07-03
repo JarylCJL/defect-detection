@@ -1,0 +1,5 @@
+corrosion
+crack
+spall
+plant_growth
+crack_glass

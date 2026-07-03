@@ -1,0 +1,27 @@
+# Consolidated dependency list, synthesized from imports actually used across
+# batch_inference, data-cleaning, and yolonas-training. None of the original
+# three projects had a dependency manifest, so nothing here is pinned except
+# super-gradients (see note below). Test and pin versions for your environment
+# before relying on this in production.
+
+torch
+# super-gradients==3.7.1 was the one version seen pinned anywhere in the
+# source projects (in a since-excluded legacy notebook) - a reasonable
+# starting point, uncomment to pin:
+super-gradients
+opencv-python
+sahi
+pyyaml
+tqdm
+pillow
+pandas
+matplotlib
+seaborn
+tensorboard
+numpy
+
+# Needed to run the .ipynb notebooks (train.ipynb, data-cleaning.ipynb,
+# kelvin_bbox_cleaning.ipynb) - not an import in the original code, added
+# because the pipeline can't be run without it.
+jupyter
+ipykernel
