@@ -14,13 +14,13 @@
 /batch_inference/output-preds/*
 !/batch_inference/output-preds/.gitkeep
 
-/yolonas-training/data/train/images/*
-/yolonas-training/data/train/labels/*
-/yolonas-training/data/val/images/*
-/yolonas-training/data/val/labels/*
-/yolonas-training/data/test/images/*
-/yolonas-training/data/test/labels/*
-!/yolonas-training/data/**/.gitkeep
+/yolonas-training/training-data/train/images/*
+/yolonas-training/training-data/train/labels/*
+/yolonas-training/training-data/val/images/*
+/yolonas-training/training-data/val/labels/*
+/yolonas-training/training-data/test/images/*
+/yolonas-training/training-data/test/labels/*
+!/yolonas-training/training-data/**/.gitkeep
 
 # local scratch staging created by merge_datasets.py, not part of the tracked layout
 /yolonas-training/datasets/

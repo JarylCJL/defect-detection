@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Split a single source folder into data/{train,val,test}.
+"""Split a single source folder into training-data/{train,val,test}.
 
 Example:
   python scripts/copy_dataset.py \
     --src ../data/data-5defect/building-defect-5defect \
-    --dst data
+    --dst training-data
 """
 
 import argparse
@@ -108,7 +108,7 @@ def split_source(
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Split a single source folder into data/train, data/val, data/test"
+        description="Split a single source folder into training-data/train, training-data/val, training-data/test"
     )
     parser.add_argument(
         "--src",
@@ -119,7 +119,7 @@ def main() -> int:
         "--dst",
         type=Path,
         default=None,
-        help="Destination root for train/val/test. Defaults to yolonas-training/data, "
+        help="Destination root for train/val/test. Defaults to yolonas-training/training-data, "
         "anchored to this script's location regardless of CWD (not the shared top-level data/).",
     )
     parser.add_argument(
@@ -149,7 +149,7 @@ def main() -> int:
 
     args = parser.parse_args()
     src_dir = Path(args.src)
-    dst_root = args.dst if args.dst is not None else Path(__file__).resolve().parent.parent / "data"
+    dst_root = args.dst if args.dst is not None else Path(__file__).resolve().parent.parent / "training-data"
 
     if not src_dir.exists():
         print(f"Source path not found: {src_dir}")

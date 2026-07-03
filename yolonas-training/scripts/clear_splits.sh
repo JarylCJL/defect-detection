@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-DATA_DIR="${ROOT_DIR}/data"
+DATA_DIR="${ROOT_DIR}/training-data"
 
 rm -rf "${DATA_DIR}/train" "${DATA_DIR}/val" "${DATA_DIR}/test"
 mkdir -p "${DATA_DIR}/train" "${DATA_DIR}/val" "${DATA_DIR}/test"

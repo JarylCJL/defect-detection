@@ -13,7 +13,7 @@ Args:
              If omitted, uses the first dataset's data.yaml names.
   --out       Output dataset root (default: datasets/merged, a local scratch
               staging dir — feed this into copy_dataset.py --src to produce
-              the final train/val/test split under yolonas-training/data/).
+              the final train/val/test split under yolonas-training/training-data/).
 """
 
 from __future__ import annotations

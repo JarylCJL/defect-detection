@@ -10,7 +10,7 @@ Merges dataset labels dataset-to-dataset:
 Desired labels are matched against the *raw* source dataset's own class
 names (which may use a different naming convention, e.g. spaces instead of
 underscores) but written to the output classes.txt using the pipeline's
-canonical name (matching yolonas-training/data/classes.txt). See
+canonical name (matching yolonas-training/training-data/classes.txt). See
 DEFAULT_DESIRED_LABELS below for the (source_name, output_name) mapping.
 
 Output class schema:
