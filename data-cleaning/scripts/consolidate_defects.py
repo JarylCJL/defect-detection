@@ -4,20 +4,26 @@ consolidate_defects.py
 
 Merges dataset labels dataset-to-dataset:
   - Keeps corrosion, crack, spall labels from cleaned dataset versions
-  - Adds desired labels (default: plant growth, crack glass) from original datasets
+  - Adds desired labels (default: plant_growth, crack_glass) from original datasets
   - Only processes images that exist in both original and cleaned datasets
+
+Desired labels are matched against the *raw* source dataset's own class
+names (which may use a different naming convention, e.g. spaces instead of
+underscores) but written to the output classes.txt using the pipeline's
+canonical name (matching yolonas-training/data/classes.txt). See
+DEFAULT_DESIRED_LABELS below for the (source_name, output_name) mapping.
 
 Output class schema:
   0: corrosion
   1: crack
   2: spall
-  3: plant growth
-  4: crack glass
+  3: plant_growth
+  4: crack_glass
 
 Usage:
     python scripts/consolidate_defects.py
     python scripts/consolidate_defects.py --base-dir /path/to/defect-detection/data
-    python scripts/consolidate_defects.py --desired-labels "plant growth" "crack glass"
+    python scripts/consolidate_defects.py --desired-labels "plant growth=plant_growth" "crack glass=crack_glass"
 """
 
 import argparse
@@ -49,7 +55,12 @@ DATASET_MAPPINGS = [
     ),
 ]
 
-DEFAULT_DESIRED_LABELS = ["plant growth", "crack glass"]
+# (source_name, output_name): source_name matches the raw dataset's own
+# class list; output_name is what gets written into the produced classes.txt.
+DEFAULT_DESIRED_LABELS = [
+    ("plant growth", "plant_growth"),
+    ("crack glass", "crack_glass"),
+]
 
 # Output class ordering: cleaned classes first, then desired labels in order
 OUTPUT_BASE_CLASSES = ["corrosion", "crack", "spall"]
@@ -91,11 +102,15 @@ def process_dataset(
     original_dir: Path,
     cleaned_dir: Path,
     output_dir: Path,
-    desired_labels: list[str],
+    desired_labels: list[tuple[str, str]],
     output_classes: list[str],
 ) -> dict:
     """
     Process one dataset pair and write merged output.
+
+    desired_labels is a list of (source_name, output_name) pairs: source_name
+    is matched against the raw dataset's own class list, output_name is what
+    ends up in the produced classes.txt / label files.
 
     Returns a stats dict with counts for reporting.
     """
@@ -109,14 +124,14 @@ def process_dataset(
 
     cleaned_classes = read_classes(cleaned_dir / "classes.txt")
 
-    # Map desired label names to their original class IDs
+    # Map original class IDs directly to their output label name
     orig_class_to_id = {name: i for i, name in enumerate(orig_classes)}
     desired_orig_ids = {}
-    for label in desired_labels:
-        if label in orig_class_to_id:
-            desired_orig_ids[orig_class_to_id[label]] = label
+    for source_name, output_name in desired_labels:
+        if source_name in orig_class_to_id:
+            desired_orig_ids[orig_class_to_id[source_name]] = output_name
 
-    # Map desired label names to their output class IDs
+    # Map output label names to their output class IDs
     output_class_to_id = {name: i for i, name in enumerate(output_classes)}
 
     # Set up source directories
@@ -137,7 +152,9 @@ def process_dataset(
         "images_processed": 0,
         "images_with_extra_labels": 0,
         "extra_annotations_added": 0,
-        "desired_labels_not_in_original": [l for l in desired_labels if l not in orig_class_to_id],
+        "desired_labels_not_in_original": [
+            source_name for source_name, _ in desired_labels if source_name not in orig_class_to_id
+        ],
     }
 
     # Process each image in the cleaned dataset
@@ -215,9 +232,14 @@ def main():
     parser.add_argument(
         "--desired-labels",
         nargs="+",
-        default=DEFAULT_DESIRED_LABELS,
-        metavar="LABEL",
-        help=f"Labels to extract from original datasets (default: {DEFAULT_DESIRED_LABELS})",
+        default=None,
+        metavar="SOURCE_NAME[=OUTPUT_NAME]",
+        help=(
+            "Labels to extract from original datasets, matched by their name in the "
+            "source dataset's own class list. Use SOURCE_NAME=OUTPUT_NAME to rename "
+            "on output (e.g. 'plant growth=plant_growth'); a bare name is used for "
+            f"both. Default: {DEFAULT_DESIRED_LABELS}"
+        ),
     )
     args = parser.parse_args()
 
@@ -227,8 +249,14 @@ def main():
     else:
         base_dir = Path(__file__).resolve().parents[2] / "data"
 
-    desired_labels = args.desired_labels
-    output_classes = OUTPUT_BASE_CLASSES + desired_labels
+    if args.desired_labels is None:
+        desired_labels = DEFAULT_DESIRED_LABELS
+    else:
+        desired_labels = [
+            tuple(raw.split("=", 1)) if "=" in raw else (raw, raw) for raw in args.desired_labels
+        ]
+
+    output_classes = OUTPUT_BASE_CLASSES + [output_name for _, output_name in desired_labels]
 
     print(f"Base directory : {base_dir}")
     print(f"Desired labels : {desired_labels}")

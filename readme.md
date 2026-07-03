@@ -41,7 +41,7 @@ defect-detection/
 │   │   ├── tile_building_defect_images.py  # builds data/data-tiled/* from a cleaned dataset
 │   │   └── yolo_to_ls_predictions.py    # YOLO labels -> Label Studio prediction JSON (annotation-review workflow)
 │   ├── data-cleaning.ipynb              # filters raw building-defect-detection dataset
-│   └── kelvin_bbox_cleaning.ipynb       # EDA + cleaning for tf_rbb_all (filename is a pre-existing misnomer)
+│   └── clean_to_3class.ipynb            # reusable template: raw -> {crack,corrosion,spall}; see "Data provenance" below
 ├── yolonas-training/
 │   ├── train.ipynb                      # main YOLO-NAS-M training pipeline
 │   ├── copy_paste_aug.py                # custom class-aware copy-paste augmentation
@@ -64,19 +64,21 @@ defect-detection/
 
 **1. Data cleaning** (from `data-cleaning/`):
 ```bash
-jupyter notebook data-cleaning.ipynb        # filters raw dataset -> ../data/data-cleaned/
-jupyter notebook kelvin_bbox_cleaning.ipynb # EDA + cleaning for tf_rbb_all -> ../data/data-cleaned/
-python scripts/consolidate_defects.py       # -> ../data/data-5defect/ (defaults to ../data)
+jupyter notebook data-cleaning.ipynb   # filters raw building-defect-detection dataset -> ../data/data-cleaned/
+jupyter notebook clean_to_3class.ipynb # reusable template: edit DATASET_NAME at the top, then run -> ../data/data-cleaned/<dataset>/
+python scripts/consolidate_defects.py  # -> ../data/data-5defect/ (defaults to ../data)
 python scripts/tile_building_defect_images.py --src ../data/data-cleaned/<name> --dest ../data/data-tiled/<name>
 ```
 
 **2. Training** (from `yolonas-training/`):
 ```bash
 # optional: merge multiple tiled/5-defect sources from ../data/ into a local scratch dir
-python scripts/merge_datasets.py --datasets ../data/data-tiled/<a> ../data/data-tiled/<b> --out datasets/merged
+# (--out defaults to yolonas-training/datasets/merged regardless of CWD; override if needed)
+python scripts/merge_datasets.py --datasets ../data/data-tiled/<a> ../data/data-tiled/<b>
 
 # split into the local train/val/test copy
-python scripts/copy_dataset.py --src ../data/data-5defect/<name> --dst data
+# (--dst defaults to yolonas-training/data regardless of CWD; override if needed)
+python scripts/copy_dataset.py --src ../data/data-5defect/<name>
 
 jupyter notebook train.ipynb   # writes checkpoints to ../models/building_defect_yolo_nas_m/RUN_*/
 ```
@@ -93,10 +95,14 @@ python batch_inference.py --config config.yaml
 pip install -r requirements.txt
 ```
 
-## Known issues (pre-existing, not introduced by this consolidation)
+## Data provenance (read before trying to regenerate anything)
 
+Tracing the full pipeline end-to-end surfaced gaps in how reproducible some of the intermediate datasets actually are. These predate this consolidation; they're documented here rather than silently papered over.
+
+- **`data/data-cleaned/kelvin_bbox_cleaned`** (expected by `consolidate_defects.py`'s `DATASET_MAPPINGS`) **is not currently reproducible.** `clean_to_3class.ipynb` is a reusable raw→3-class cleaning template that was originally built for the `kelvin_bbox_all` dataset (hence its old filename, `kelvin_bbox_cleaning.ipynb`) but has since been repointed at `tf_rbb_all` — its currently-saved state reflects that later run, not the one that produced `kelvin_bbox_cleaned`. To regenerate it: once `kelvin_bbox_all` is migrated into `data/data_raw/`, set `DATASET_NAME = "kelvin_bbox_all"` in the notebook's config cell and rerun.
+- **`data/data-cleaned/tf_rbb_cleaned_half`** (expected by `consolidate_defects.py`) **vs. `clean_to_3class.ipynb`'s current output path `tf_rbb_all`** — these don't match, and the `_half` suffix's origin (a different filter threshold? a subsample?) is unknown. **Explicitly unresolved** — don't assume either path is authoritative until this is investigated.
+- **`data/data-5defect/ray_synthetic_crackglass_gt2_5defect`** — the only source of `crack_glass` training data. Confirmed to be a **manual/external process**; there is no script or notebook anywhere in this repo (or the original projects) that produces it, and none should be assumed to exist.
 - Several data-cleaning scripts/notebooks have output folder names that don't match what's actually on disk in the original projects (e.g. `building-defect-detection` vs `building-defect-cleaned`) — inherited as-is, not silently fixed during migration.
-- `kelvin_bbox_cleaning.ipynb`'s filename doesn't match its actual content (it processes `tf_rbb_all`, not kelvin_bbox data).
 
 ## What was intentionally left out of this consolidation
 

@@ -117,8 +117,10 @@ def main() -> int:
     )
     parser.add_argument(
         "--dst",
-        default="data",
-        help="Destination root for train/val/test (default: data)",
+        type=Path,
+        default=None,
+        help="Destination root for train/val/test. Defaults to yolonas-training/data, "
+        "anchored to this script's location regardless of CWD (not the shared top-level data/).",
     )
     parser.add_argument(
         "--train-ratio",
@@ -147,7 +149,7 @@ def main() -> int:
 
     args = parser.parse_args()
     src_dir = Path(args.src)
-    dst_root = Path(args.dst)
+    dst_root = args.dst if args.dst is not None else Path(__file__).resolve().parent.parent / "data"
 
     if not src_dir.exists():
         print(f"Source path not found: {src_dir}")

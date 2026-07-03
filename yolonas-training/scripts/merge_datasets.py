@@ -174,8 +174,10 @@ def main() -> int:
     )
     parser.add_argument(
         "--out",
-        default="datasets/merged",
-        help="Output dataset root (default: datasets/merged)",
+        type=Path,
+        default=None,
+        help="Output dataset root. Defaults to yolonas-training/scripts/../datasets/merged, "
+        "anchored to this script's location regardless of CWD.",
     )
     parser.add_argument(
         "--classes",
@@ -185,7 +187,7 @@ def main() -> int:
     args = parser.parse_args()
 
     dataset_dirs = [Path(p) for p in args.datasets]
-    out_root = Path(args.out)
+    out_root = args.out if args.out is not None else Path(__file__).resolve().parent.parent / "datasets" / "merged"
     out_images = out_root / "train" / "images"
     out_labels = out_root / "train" / "labels"
     out_images.mkdir(parents=True, exist_ok=True)

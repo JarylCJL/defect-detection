@@ -23,6 +23,10 @@ import shutil
 import sys
 from typing import Iterable
 
+# yolonas-training/scripts/.. -> yolonas-training, then /../models -> shared top-level models/
+_SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+_DEFAULT_MODELS_DIR = os.path.normpath(os.path.join(_SCRIPT_DIR, "..", "..", "models"))
+
 
 def load_keep_set(map_path: str) -> set[str]:
     keep: set[str] = set()
@@ -49,12 +53,13 @@ def main() -> int:
     )
     parser.add_argument(
         "--base-dir",
-        default="../models/building_defect_yolo_nas_m",
-        help="Directory containing RUN_* folders. Resolved relative to CWD (defaults to the shared top-level models/ dir).",
+        default=os.path.join(_DEFAULT_MODELS_DIR, "building_defect_yolo_nas_m"),
+        help="Directory containing RUN_* folders. Defaults to the shared top-level "
+        "models/ dir, anchored to this script's location regardless of CWD.",
     )
     parser.add_argument(
         "--map-file",
-        default="../models/checkpoint-map.txt",
+        default=os.path.join(_DEFAULT_MODELS_DIR, "checkpoint-map.txt"),
         help="Text file listing runs to keep (first token per line).",
     )
     parser.add_argument(

@@ -7,6 +7,9 @@
 # - Generates square tiles at one or more sizes with configurable overlap.
 # - Clips bounding boxes to each tile and writes new YOLO labels.
 # - Writes tiled images/labels to <dest>/images and <dest>/labels.
+# - If <src>/classes.txt exists, copies it to <dest>/classes.txt and writes
+#   <dest>/data.yaml (names/nc/train: images) so merge_datasets.py can
+#   consume the output directly.
 #
 # How to use:
 # - Default run (sizes=2048; overlap=0.5):
@@ -110,6 +113,30 @@ def write_labels(out_path: Path, labels: list[tuple[int, float, float, float, fl
     with out_path.open("w", encoding="utf-8") as f:
         for cls, x, y, w, h in labels:
             f.write(f"{cls} {x:.6f} {y:.6f} {w:.6f} {h:.6f}\n")
+
+
+def write_dataset_metadata(src_root: Path, out_root: Path) -> None:
+    """Propagate classes.txt and write a data.yaml so downstream tools
+    (e.g. merge_datasets.py, which hard-requires a data.yaml with a
+    `train:` key) can consume the tiled output directly.
+    """
+    src_classes = src_root / "classes.txt"
+    if not src_classes.exists():
+        return
+
+    names = [line.strip() for line in src_classes.read_text().splitlines() if line.strip()]
+    if not names:
+        return
+
+    (out_root / "classes.txt").write_text("\n".join(names) + "\n")
+
+    data_yaml_lines = [
+        "names:",
+        *[f"- {name}" for name in names],
+        f"nc: {len(names)}",
+        "train: images",
+    ]
+    (out_root / "data.yaml").write_text("\n".join(data_yaml_lines) + "\n")
 
 
 def tile_image(
@@ -220,6 +247,8 @@ def main() -> None:
             args.overlap,
             not args.keep_empty,
         )
+
+    write_dataset_metadata(src_root, out_root)
 
 
 if __name__ == "__main__":
