@@ -46,7 +46,7 @@ defect-detection/
 │   ├── train.ipynb                      # main YOLO-NAS-M training pipeline
 │   ├── copy_paste_aug.py                # custom class-aware copy-paste augmentation
 │   ├── scripts/
-│   │   ├── copy_dataset.py              # splits a source dataset into training-data/{train,val,test}
+│   │   ├── split_dataset.py             # splits a source dataset into training-data/{train,val,test}
 │   │   ├── merge_datasets.py            # merges multiple ../data/{data-tiled,data-5defect}/* sources
 │   │   ├── cleanup_checkpoints.py       # prunes RUN_* checkpoint folders under ../models/
 │   │   └── clear_splits.sh              # wipes and recreates local training-data/{train,val,test}
@@ -78,7 +78,7 @@ python scripts/merge_datasets.py --datasets ../data/data-tiled/<a> ../data/data-
 
 # split into the local train/val/test copy
 # (--dst defaults to yolonas-training/training-data regardless of CWD; override if needed)
-python scripts/copy_dataset.py --src ../data/data-5defect/<name>
+python scripts/split_dataset.py --src ../data/data-5defect/<name>
 
 jupyter notebook train.ipynb   # writes checkpoints to ../models/building_defect_yolo_nas_m/RUN_*/
 ```

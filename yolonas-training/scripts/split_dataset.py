@@ -2,7 +2,7 @@
 """Split a single source folder into training-data/{train,val,test}.
 
 Example:
-  python scripts/copy_dataset.py \
+  python scripts/split_dataset.py \
     --src ../data/data-5defect/building-defect-5defect \
     --dst training-data
 """

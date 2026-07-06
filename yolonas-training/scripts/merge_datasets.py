@@ -12,7 +12,7 @@ Args:
   --classes   Comma-separated target class list; index is the class id.
              If omitted, uses the first dataset's data.yaml names.
   --out       Output dataset root (default: datasets/merged, a local scratch
-              staging dir — feed this into copy_dataset.py --src to produce
+              staging dir — feed this into split_dataset.py --src to produce
               the final train/val/test split under yolonas-training/training-data/).
 """
 
