@@ -4,7 +4,9 @@ Consolidated pipeline for building-defect detection from drone/UAV imagery: raw 
 
 ## Status
 
-This is a **structural consolidation only**. Code (scripts + notebooks) has been migrated and path-adjusted; the actual image datasets and model checkpoints (~300GB combined across the original projects) have **not** been copied yet. All `data/`, `models/`, and per-project data folders exist as empty skeletons (tracked via `.gitkeep`).
+Code (scripts + notebooks) has been migrated and path-adjusted, and the shared `data/` tree (`data_raw/`, `data-cleaned/`, `data-tiled/`, `data-5defect/` — ~168GB total) has been copied in from the original `data-cleaning` project. None of it is tracked in git (see `.gitignore`) — it exists only on disk, locally.
+
+`models/`, `yolonas-training/training-data/{train,val,test}`, and `batch_inference/{input-data,output-preds}` are still empty skeletons (tracked via `.gitkeep`). These aren't filled by data migration — they get populated by actually running the pipeline: `split_dataset.py` produces the local train/val/test copy, `train.ipynb` writes checkpoints to `models/`, and dropping images into `input-data/` + running inference produces `output-preds/`.
 
 ## Pipeline flow
 
@@ -56,6 +58,7 @@ defect-detection/
     ├── sahi_inference.py                # SAHI tiled-inference wrapper
     ├── clear_output_preds.py            # utility to clear output-preds/
     ├── config.yaml                      # runtime configuration (checkpoint_path -> ../models/...)
+    ├── README.md                        # original project README (setup/usage detail)
     ├── input-data/                      # local inference inputs (own copy, not shared)
     └── output-preds/                    # timestamped run outputs
 ```
