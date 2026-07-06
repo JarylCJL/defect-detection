@@ -108,11 +108,6 @@ pip install -r requirements.txt
 
 ## Data provenance (read before trying to regenerate anything)
 
-Tracing the full pipeline end-to-end surfaced gaps in how reproducible some of the intermediate datasets actually are. These predate this consolidation; they're documented here rather than silently papered over.
-
-- **`data/data-cleaned/kelvin_bbox_cleaned`** (expected by `consolidate_defects.py`'s `DATASET_MAPPINGS`) **is not currently reproducible.** `clean_to_3class.ipynb` is a reusable raw→3-class cleaning template that was originally built for the `kelvin_bbox_all` dataset (hence its old filename, `kelvin_bbox_cleaning.ipynb`) but has since been repointed at `tf_rbb_all` — its currently-saved state reflects that later run, not the one that produced `kelvin_bbox_cleaned`. To regenerate it: once `kelvin_bbox_all` is migrated into `data/data_raw/`, set `DATASET_NAME = "kelvin_bbox_all"` in the notebook's config cell and rerun.
-- **`data/data-cleaned/tf_rbb_cleaned_half`** (expected by `consolidate_defects.py`) **vs. `clean_to_3class.ipynb`'s current output path `tf_rbb_all`** — these don't match, and the `_half` suffix's origin (a different filter threshold? a subsample?) is unknown. **Explicitly unresolved** — don't assume either path is authoritative until this is investigated.
-- **`data/data-5defect/ray_synthetic_crackglass_gt2_5defect`** — the only source of `crack_glass` training data. Confirmed to be a **manual/external process**; there is no script or notebook anywhere in this repo (or the original projects) that produces it, and none should be assumed to exist.
 - Several data-cleaning scripts/notebooks have output folder names that don't match what's actually on disk in the original projects (e.g. `building-defect-detection` vs `building-defect-cleaned`) — inherited as-is, not silently fixed during migration.
 
 ## What was intentionally left out of this consolidation
