@@ -53,6 +53,11 @@ DATASET_MAPPINGS = [
         "data-cleaned/tf_rbb_cleaned_half",
         "tf_rbb-5defect",
     ),
+    (
+        "data_raw/tf_r2",
+        "data-cleaned/tf_r2_cleaned",
+        "tf_r2-5defect",
+    ),
 ]
 
 # (source_name, output_name): source_name matches the raw dataset's own
