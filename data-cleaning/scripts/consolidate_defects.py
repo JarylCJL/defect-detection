@@ -208,6 +208,15 @@ def process_dataset(
     # Write classes.txt
     (output_dir / "classes.txt").write_text("\n".join(output_classes) + "\n")
 
+    # Write data.yaml so merge_datasets.py (which hard-requires one) can consume the output
+    data_yaml_lines = [
+        "names:",
+        *[f"- {name}" for name in output_classes],
+        f"nc: {len(output_classes)}",
+        "train: images",
+    ]
+    (output_dir / "data.yaml").write_text("\n".join(data_yaml_lines) + "\n")
+
     # Write notes.json
     notes = {
         "categories": [{"id": i, "name": name} for i, name in enumerate(output_classes)],
