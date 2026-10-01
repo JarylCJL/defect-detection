@@ -39,7 +39,7 @@ defect-detection/
 │   └── building_defect_yolo_nas_m/RUN_*/...   (created by SuperGradients Trainer)
 ├── data-cleaning/
 │   ├── scripts/
-│   │   ├── consolidate_defects.py       # builds data/data-5defect/* from data_raw/ + data-cleaned/
+│   │   ├── restore_selected_classes.py     # builds data/data-5defect/*: cleaned 3-class labels + selected classes restored from data_raw/
 │   │   ├── tile_building_defect_images.py  # builds data/data-tiled/* from a cleaned dataset
 │   │   └── yolo_to_ls_predictions.py    # YOLO labels -> Label Studio prediction JSON (annotation-review workflow)
 │   ├── data-cleaning.ipynb              # filters raw building-defect-detection dataset
@@ -69,7 +69,7 @@ defect-detection/
 ```bash
 jupyter notebook data-cleaning.ipynb   # filters raw building-defect-detection dataset -> ../data/data-cleaned/
 jupyter notebook clean_to_3class.ipynb # reusable template: edit DATASET_NAME at the top, then run -> ../data/data-cleaned/<dataset>/
-python scripts/consolidate_defects.py  # -> ../data/data-5defect/ (defaults to ../data)
+python scripts/restore_selected_classes.py  # -> ../data/data-5defect/ (defaults to ../data)
 python scripts/tile_building_defect_images.py --src ../data/data-cleaned/<name> --dest ../data/data-tiled/<name>
 ```
 

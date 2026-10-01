@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-consolidate_defects.py
+restore_selected_classes.py
 
-Merges dataset labels dataset-to-dataset:
+Restores selected classes that cleaning removed, one dataset at a time:
   - Keeps corrosion, crack, spall labels from cleaned dataset versions
   - Adds desired labels (default: plant_growth, crack_glass) from original datasets
   - Only processes images that exist in both original and cleaned datasets
@@ -21,9 +21,9 @@ Output class schema:
   4: crack_glass
 
 Usage:
-    python scripts/consolidate_defects.py
-    python scripts/consolidate_defects.py --base-dir /path/to/defect-detection/data
-    python scripts/consolidate_defects.py --desired-labels "plant growth=plant_growth" "crack glass=crack_glass"
+    python scripts/restore_selected_classes.py
+    python scripts/restore_selected_classes.py --base-dir /path/to/defect-detection/data
+    python scripts/restore_selected_classes.py --desired-labels "plant growth=plant_growth" "crack glass=crack_glass"
 """
 
 import argparse
@@ -235,7 +235,7 @@ def process_dataset(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Consolidate defect datasets: merge cleaned labels with desired labels from originals."
+        description="Restore selected classes dropped during cleaning: merge cleaned labels with desired labels from the raw originals."
     )
     parser.add_argument(
         "--base-dir",
