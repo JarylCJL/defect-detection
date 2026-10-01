@@ -39,11 +39,13 @@ defect-detection/
 │   └── building_defect_yolo_nas_m/RUN_*/...   (created by SuperGradients Trainer)
 ├── data-cleaning/
 │   ├── scripts/
+│   │   ├── clean_to_x_classes.py           # raw -> data/data-cleaned/*: keep chosen classes, drop images left without annotations
+│   │   ├── filter_low_res.py               # drops images below a minimum resolution (default 2048) from a cleaned dataset, in place
 │   │   ├── restore_selected_classes.py     # builds data/data-5defect/*: cleaned 3-class labels + selected classes restored from data_raw/
 │   │   ├── tile_building_defect_images.py  # builds data/data-tiled/* from a cleaned dataset
 │   │   └── yolo_to_ls_predictions.py    # YOLO labels -> Label Studio prediction JSON (annotation-review workflow)
 │   ├── data-cleaning.ipynb              # filters raw building-defect-detection dataset
-│   └── clean_to_3class.ipynb            # reusable template: raw -> {crack,corrosion,spall}; see "Data provenance" below
+│   └── dataset_eda.ipynb                # read-only EDA for any YOLO dataset (classes, resolutions, box sizes)
 ├── yolonas-training/
 │   ├── train.ipynb                      # main YOLO-NAS-M training pipeline
 │   ├── copy_paste_aug.py                # custom class-aware copy-paste augmentation
@@ -68,10 +70,28 @@ defect-detection/
 **1. Data cleaning** (from `data-cleaning/`):
 ```bash
 jupyter notebook data-cleaning.ipynb   # filters raw building-defect-detection dataset -> ../data/data-cleaned/
-jupyter notebook clean_to_3class.ipynb # reusable template: edit DATASET_NAME at the top, then run -> ../data/data-cleaned/<dataset>/
+jupyter notebook dataset_eda.ipynb     # read-only EDA: set DATASET_DIR at the top (raw, cleaned or tiled dataset)
+
+# keep chosen classes + drop images left without annotations -> ../data/data-cleaned/<name>_cleaned
+# (--classes is the file listing the source classes: classes.txt, data.yaml or notes.json;
+#  --keep order sets the output class ids; names with spaces: plant_growth or "plant growth")
+python scripts/clean_to_x_classes.py \
+  --images ../data/data_raw/<name>/images \
+  --labels ../data/data_raw/<name>/labels \
+  --classes ../data/data_raw/<name>/classes.txt \
+  --dest ../data/data-cleaned/<name>_cleaned \
+  --keep corrosion crack spall
+
+# drop images whose shorter side is below 2048 px (in place; rejects moved to <src>/rejected_low_res/)
+python scripts/filter_low_res.py --src ../data/data-cleaned/<name>_cleaned --min-side 2048
+
 python scripts/restore_selected_classes.py  # -> ../data/data-5defect/ (defaults to ../data)
-python scripts/tile_building_defect_images.py --src ../data/data-cleaned/<name> --dest ../data/data-tiled/<name>
+
+# NOTE: the tiler resolves relative --src/--dest against the shared data/ dir, not the current directory
+python scripts/tile_building_defect_images.py --src data-cleaned/<name> --dest data-tiled/<name>
 ```
+
+`clean_to_x_classes.py` and `filter_low_res.py` resolve paths against the current directory. Passing all five classes (`--keep corrosion crack spall plant_growth crack_glass`) produces a 5-defect dataset directly, without `restore_selected_classes.py`, and keeps images that only contain `plant_growth` / `crack_glass` (the 3-class route drops those before the restore step can see them).
 
 **2. Training** (from `yolonas-training/`):
 ```bash
