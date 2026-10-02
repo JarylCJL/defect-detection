@@ -33,7 +33,7 @@
 #
 # How to use (paths are relative to the current directory; examples assume you
 # are in yolonas-training/):
-# - Default run (90/10 train/val, no test set, seed 42):
+# - Default run (80/20 train/val, no test set, seed 42):
 #   python scripts/build_training_data.py \
 #     --datasets ../data/data-tiled/building-defect-5defect-tiled \
 #                ../data/data-tiled/kelvin_bbox-5defect-tiled \
@@ -403,7 +403,7 @@ def main() -> None:
         required=True,
         help="Dataset roots, each containing images/, labels/ and classes.txt.",
     )
-    parser.add_argument("--val-ratio", type=float, default=0.1, help="Share of photos for val (default: 0.1).")
+    parser.add_argument("--val-ratio", type=float, default=0.2, help="Share of photos for val (default: 0.2).")
     parser.add_argument("--test-ratio", type=float, default=0.0, help="Share of photos for test (default: 0).")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for the split (default: 42).")
     parser.add_argument(

@@ -98,7 +98,7 @@ python scripts/tile_building_defect_images.py --src data-cleaned/<name> --dest d
 # - clears training-data/{train,val,test} itself; --dst defaults to yolonas-training/training-data regardless of CWD
 python scripts/build_training_data.py \
   --datasets ../data/data-tiled/<a> ../data/data-tiled/<b> \
-  --val-ratio 0.1            # add --dry-run to check the datasets and preview the split without writing
+  --val-ratio 0.2            # the default (80/20 train/val); add --dry-run to check the datasets and preview the split without writing
 
 jupyter notebook train.ipynb   # writes checkpoints to ../models/building_defect_yolo_nas_m/RUN_*/
 ```
