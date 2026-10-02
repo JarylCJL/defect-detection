@@ -6,7 +6,7 @@ Consolidated pipeline for building-defect detection from drone/UAV imagery: raw 
 
 Code (scripts + notebooks) has been migrated and path-adjusted, and the shared `data/` tree (`data_raw/`, `data-cleaned/`, `data-tiled/`, `data-5defect/` — ~168GB total) has been copied in from the original `data-cleaning` project. None of it is tracked in git (see `.gitignore`) — it exists only on disk, locally.
 
-`models/`, `yolonas-training/training-data/{train,val,test}`, and `batch_inference/{input-data,output-preds}` are still empty skeletons (tracked via `.gitkeep`). These aren't filled by data migration — they get populated by actually running the pipeline: `split_dataset.py` produces the local train/val/test copy, `train.ipynb` writes checkpoints to `models/`, and dropping images into `input-data/` + running inference produces `output-preds/`.
+`models/`, `yolonas-training/training-data/{train,val,test}`, and `batch_inference/{input-data,output-preds}` are still empty skeletons (tracked via `.gitkeep`). These aren't filled by data migration — they get populated by actually running the pipeline: `build_training_data.py` produces the local train/val/test copy, `train.ipynb` writes checkpoints to `models/`, and dropping images into `input-data/` + running inference produces `output-preds/`.
 
 ## Pipeline flow
 
@@ -49,10 +49,9 @@ defect-detection/
 │   ├── train.ipynb                      # main YOLO-NAS-M training pipeline
 │   ├── copy_paste_aug.py                # custom class-aware copy-paste augmentation
 │   ├── scripts/
-│   │   ├── split_dataset.py             # splits a source dataset into training-data/{train,val,test}
-│   │   ├── merge_datasets.py            # merges multiple ../data/{data-tiled,data-5defect}/* sources
+│   │   ├── build_training_data.py       # builds training-data/{train,val,test} directly from one or more ../data/data-tiled/* datasets
 │   │   ├── cleanup_checkpoints.py       # prunes RUN_* checkpoint folders under ../models/
-│   │   └── clear_splits.sh              # wipes and recreates local training-data/{train,val,test}
+│   │   └── clear_splits.sh              # wipes and recreates local training-data/{train,val,test} (build_training_data.py now clears the split itself)
 │   └── training-data/                   # the one persisted copy of the train/val/test split
 └── batch_inference/
     ├── batch_inference.py               # main entry point
@@ -93,13 +92,13 @@ python scripts/tile_building_defect_images.py --src data-cleaned/<name> --dest d
 
 **2. Training** (from `yolonas-training/`):
 ```bash
-# optional: merge multiple tiled/5-defect sources from ../data/ into a local scratch dir
-# (--out defaults to yolonas-training/datasets/merged regardless of CWD; override if needed)
-python scripts/merge_datasets.py --datasets ../data/data-tiled/<a> ../data/data-tiled/<b>
-
-# split into the local train/val/test copy
-# (--dst defaults to yolonas-training/training-data regardless of CWD; override if needed)
-python scripts/split_dataset.py --src ../data/data-5defect/<name>
+# build the local train/val/test copy straight from one or more datasets (no intermediate merged dataset)
+# - every dataset needs images/, labels/ and an identical classes.txt (same names, same order), or it stops with an error
+# - splits by source photo, per dataset, so tiles of one photo never straddle train and val
+# - clears training-data/{train,val,test} itself; --dst defaults to yolonas-training/training-data regardless of CWD
+python scripts/build_training_data.py \
+  --datasets ../data/data-tiled/<a> ../data/data-tiled/<b> \
+  --val-ratio 0.1            # add --dry-run to check the datasets and preview the split without writing
 
 jupyter notebook train.ipynb   # writes checkpoints to ../models/building_defect_yolo_nas_m/RUN_*/
 ```
