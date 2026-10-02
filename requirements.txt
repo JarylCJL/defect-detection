@@ -22,7 +22,7 @@ numpy==1.23.0
 # easy to miss without actually running training)
 pycocotools==2.0.10
 
-# Needed to run the .ipynb notebooks (train.ipynb, data-cleaning.ipynb,
-# clean_to_3class.ipynb) - not imported by any script directly.
+# Needed to run the .ipynb notebooks (train.ipynb, dataset_eda.ipynb) - not
+# imported by any script directly.
 jupyter
 ipykernel==7.1.0
