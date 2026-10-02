@@ -5,6 +5,10 @@
 # What it does:
 # - Reads images from --images and YOLO-format labels from --labels (both flat
 #   folders, paired by filename stem).
+# - Accepts plain YOLO box rows only: exactly 5 fields (class cx cy w h), a
+#   whole-number class id and four numbers between 0 and 1. Any other row
+#   (e.g. polygon / oriented-box rows with more than 5 fields) is skipped and
+#   counted in the summary as malformed; COCO JSON is not supported.
 # - Reads the source dataset's class names from --classes (see "Class list
 #   formats" below).
 # - Normalises class names (trim, whitespace -> "_", lowercase), so
@@ -227,12 +231,14 @@ def filter_label_rows(
         parts = line.split()
         if not parts:
             continue
+        # Plain YOLO box rows only: class cx cy w h, with the box values within 0-1.
         try:
             old_id = int(parts[0])
+            box_values = [float(value) for value in parts[1:]]
         except ValueError:
             stats["rows_malformed"] += 1
             continue
-        if len(parts) < 5:
+        if len(parts) != 5 or not all(0.0 <= value <= 1.0 for value in box_values):
             stats["rows_malformed"] += 1
             continue
         if old_id not in source_names:
@@ -364,7 +370,7 @@ def main() -> None:
         ("Images with no label file", stats["images_without_label"]),
         ("Label files with no image", stats["labels_without_image"]),
         ("Label rows with a class id not in the class list", stats["rows_unknown_class_id"]),
-        ("Malformed label rows (skipped)", stats["rows_malformed"]),
+        ("Label rows that are not valid YOLO box rows (5 fields, values 0-1; skipped)", stats["rows_malformed"]),
         ("Image names shared by more than one file extension", stats["image_stems_duplicated"]),
     ]
     found = [(text, count) for text, count in problems if count]

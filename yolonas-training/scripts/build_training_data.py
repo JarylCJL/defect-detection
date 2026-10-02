@@ -13,7 +13,11 @@
 #     2. the classes.txt files are not all identical (same names, same order;
 #        the error groups the datasets by their class list);
 #     3. two datasets share a folder name;
-#     4. a label row is malformed or has a class id outside the shared list.
+#     4. a label row is not a plain YOLO box row: exactly 5 fields
+#        (class cx cy w h), a whole-number class id inside the shared list,
+#        and four numbers between 0 and 1. Polygon / oriented-box rows (more
+#        than 5 fields) and COCO JSON are not supported: the trainer reads
+#        5-field rows only, so convert those to boxes before this step.
 # - Splits by source photo, per dataset: all tiles cut from one photo
 #   (<photo>_s<size>_x<n>_y<n>) land in the same split, and every dataset
 #   contributes its own share to val/test. A dataset's split depends only on
@@ -148,6 +152,26 @@ def check_layout_and_classes(dataset_dirs: list[Path]) -> list[str]:
     return problems
 
 
+def check_yolo_row(parts: list[str], num_classes: int) -> str | None:
+    """Return what is wrong with a label row, or None for a valid YOLO box row
+    (class cx cy w h: 5 fields, class id in the class list, values within 0-1)."""
+    if len(parts) != 5:
+        return f"expected 5 fields (class cx cy w h), found {len(parts)}"
+    try:
+        class_id = int(parts[0])
+    except ValueError:
+        return f"class id '{parts[0]}' is not a whole number"
+    if not 0 <= class_id < num_classes:
+        return f"class id {class_id} is outside the class list (0-{num_classes - 1})"
+    try:
+        values = [float(value) for value in parts[1:]]
+    except ValueError:
+        return f"box values are not all numbers: {' '.join(parts[1:])}"
+    if not all(0.0 <= value <= 1.0 for value in values):
+        return f"box values must be between 0 and 1: {' '.join(parts[1:])}"
+    return None
+
+
 def scan_dataset(root: Path, num_classes: int) -> tuple[Dataset, list[str], list[str]]:
     """Pair images with labels and validate every label row (rule 4)."""
     dataset = Dataset(root=root, name=root.name)
@@ -173,20 +197,11 @@ def scan_dataset(root: Path, num_classes: int) -> tuple[Dataset, list[str], list
             parts = line.split()
             if not parts:
                 continue
-            try:
-                class_id = int(parts[0])
-            except ValueError:
-                bad_rows.append(f"{label_path}:{line_no}: class id '{parts[0]}' is not a whole number")
+            problem = check_yolo_row(parts, num_classes)
+            if problem is not None:
+                bad_rows.append(f"{label_path}:{line_no}: {problem}")
                 continue
-            if not 0 <= class_id < num_classes:
-                bad_rows.append(
-                    f"{label_path}:{line_no}: class id {class_id} is outside the class list (0-{num_classes - 1})"
-                )
-                continue
-            if len(parts) < 5:
-                bad_rows.append(f"{label_path}:{line_no}: expected 5 fields, found {len(parts)}")
-                continue
-            class_ids.append(class_id)
+            class_ids.append(int(parts[0]))
 
         dataset.items.append(
             Item(
@@ -434,7 +449,10 @@ def main() -> None:
         dataset, bad_rows, duplicate_stems = scan_dataset(root, len(class_names))
         datasets.append(dataset)
         if bad_rows:
-            lines = [f"{root.name}: {len(bad_rows)} invalid label rows (the classes.txt may not belong to these labels):"]
+            lines = [
+                f"{root.name}: {len(bad_rows)} label rows are not valid YOLO box rows "
+                "(5 fields: class cx cy w h, class id in classes.txt, values within 0-1):"
+            ]
             lines.extend(f"    {row}" for row in bad_rows[:MAX_EXAMPLES])
             if len(bad_rows) > MAX_EXAMPLES:
                 lines.append(f"    ... and {len(bad_rows) - MAX_EXAMPLES} more")
