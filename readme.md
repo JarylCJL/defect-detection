@@ -103,6 +103,14 @@ python scripts/build_training_data.py \
 jupyter notebook train.ipynb   # writes checkpoints to ../models/building_defect_yolo_nas_m/RUN_*/
 ```
 
+`train.ipynb` starts from the YOLO-NAS-M COCO pretrained weights (`INIT_SOURCE = "coco"`). super-gradients 3.7.1 tries to download them from `sghub.deci.ai`, which no longer exists, so the file has to be in torch's cache first; `setup_venv.sh` puts it there. To do it by hand:
+```bash
+mkdir -p ~/.cache/torch/hub/checkpoints
+curl -fL -o ~/.cache/torch/hub/checkpoints/yolo_nas_m_coco.pth \
+  https://d2gjn4b69gu75n.cloudfront.net/models/yolo_nas_m_coco.pth
+```
+The weights are subject to the YOLO-NAS licence terms (`LICENSE.YOLONAS.md` in the super-gradients repository).
+
 **3. Inference** (from `batch_inference/`):
 ```bash
 # update config.yaml's checkpoint_path to a real RUN_* under ../models/building_defect_yolo_nas_m/
