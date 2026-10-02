@@ -44,7 +44,6 @@ defect-detection/
 │   │   ├── restore_selected_classes.py     # builds data/data-5defect/*: cleaned 3-class labels + selected classes restored from data_raw/
 │   │   ├── tile_building_defect_images.py  # builds data/data-tiled/* from a cleaned dataset
 │   │   └── yolo_to_ls_predictions.py    # YOLO labels -> Label Studio prediction JSON (annotation-review workflow)
-│   ├── data-cleaning.ipynb              # filters raw building-defect-detection dataset
 │   └── dataset_eda.ipynb                # read-only EDA for any YOLO dataset (classes, resolutions, box sizes)
 ├── yolonas-training/
 │   ├── train.ipynb                      # main YOLO-NAS-M training pipeline
@@ -69,7 +68,6 @@ defect-detection/
 
 **1. Data cleaning** (from `data-cleaning/`):
 ```bash
-jupyter notebook data-cleaning.ipynb   # filters raw building-defect-detection dataset -> ../data/data-cleaned/
 jupyter notebook dataset_eda.ipynb     # read-only EDA: set DATASET_DIR at the top (raw, cleaned or tiled dataset)
 
 # keep chosen classes + drop images left without annotations -> ../data/data-cleaned/<name>_cleaned
@@ -132,12 +130,14 @@ pip install -r requirements.txt
 ## Data provenance (read before trying to regenerate anything)
 
 - Several data-cleaning scripts/notebooks have output folder names that don't match what's actually on disk in the original projects (e.g. `building-defect-detection` vs `building-defect-cleaned`) — inherited as-is, not silently fixed during migration.
+- `data/data-cleaned/building-defect-cleaned` (1,167 images) cannot be regenerated from `data_raw/` — treat it as a source of truth. It started from the raw `building-defect-detection-3` set with empty-label images dropped and a 6000 px minimum on the shorter side (stricter than the 2048 default used elsewhere; it keeps only the 8000x6000 images), which leaves 1,869 images, and was then reviewed and re-exported from Label Studio (hence its `notes.json`, the 702 further images removed, and a few edited label files). The equivalent of that first step today is `clean_to_x_classes.py --classes <raw>/data.yaml --keep corrosion crack spall` followed by `filter_low_res.py --min-side 6000`.
 
 ## What was intentionally left out of this consolidation
 
 A few files from the original projects were reviewed and dropped rather than migrated, since they were dead, redundant, or superseded:
 - `data-cleaning/scripts/resize_building_defect_images.py` — hardcoded paths pointing at folders that don't exist anywhere in the data tree; no evidence it was ever run.
 - `data-cleaning/data-overview.ipynb` — pure EDA/visualization, not a pipeline step.
+- `data-cleaning/data-cleaning.ipynb` — the original building-defect cleaning notebook (drop empty labels, 6000 px minimum). Superseded by `clean_to_x_classes.py` + `filter_low_res.py`; see "Data provenance" above for the parameters it used.
 - `yolonas-training/inference.ipynb` and `inference-tiling.ipynb` — broken hardcoded paths, and superseded by `batch_inference`'s production inference path.
 - `yolonas-training/scripts/copy_dataset_tree.sh` — its only job (staging a copy of `data-cleaned` into a local `datasets/` duplicate) is obsoleted by the shared top-level `data/`.
 - `yolonas-training/old scripts/building_defect_yolo_nas_m.ipynb` — legacy/superseded (older 3-class taxonomy, different checkpoint/data layout).
