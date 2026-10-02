@@ -26,8 +26,7 @@
 # - .yaml / .yml (data.yaml): the `names:` entry, as a list (block or inline)
 #   or an id -> name mapping. Comes with Roboflow / Ultralytics-style YOLO
 #   exports (building-defect-detection-3, where it sits one level above
-#   train/), and is written by tile_building_defect_images.py,
-#   restore_selected_classes.py and merge_datasets.py.
+#   train/), and is written by restore_selected_classes.py.
 # - .json (notes.json): the `categories` list of {"id", "name"} entries. Comes
 #   with Label Studio YOLO exports, sometimes without a classes.txt
 #   (Ray_CrackedGlass_Synthetic).
@@ -38,7 +37,9 @@
 #   source; stops only if none of them match.
 # - Warns if the --keep order disagrees with
 #   yolonas-training/training-data/classes.txt (ids are still assigned in the
-#   order typed).
+#   order typed). build_training_data.py only combines datasets whose
+#   classes.txt are identical, so keep the same --keep list and order for every
+#   dataset you plan to train on together.
 # - Refuses an existing, non-empty --dest unless --overwrite is passed.
 # - Stops if --images or --labels contain subfolders.
 #
@@ -186,8 +187,8 @@ def warn_if_order_differs(keep: list[str]) -> None:
         print("WARNING: --keep order differs from yolonas-training/training-data/classes.txt.")
         print(f"         Typed order   : {actual}")
         print(f"         Training order: {expected}")
-        print("         Class ids follow the typed order. merge_datasets.py remaps by name,")
-        print("         but split_dataset.py on this dataset alone does not.")
+        print("         Class ids follow the typed order. build_training_data.py only combines")
+        print("         datasets whose classes.txt are identical (same names, same order).")
 
 
 def check_flat(folder: Path, flag: str) -> None:

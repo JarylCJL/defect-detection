@@ -208,7 +208,8 @@ def process_dataset(
     # Write classes.txt
     (output_dir / "classes.txt").write_text("\n".join(output_classes) + "\n")
 
-    # Write data.yaml so merge_datasets.py (which hard-requires one) can consume the output
+    # Write data.yaml alongside classes.txt (no pipeline step reads it any more;
+    # build_training_data.py uses classes.txt)
     data_yaml_lines = [
         "names:",
         *[f"- {name}" for name in output_classes],

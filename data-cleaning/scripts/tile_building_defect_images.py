@@ -7,11 +7,12 @@
 # - Generates square tiles at one or more sizes with configurable overlap.
 # - Clips bounding boxes to each tile and writes new YOLO labels.
 # - Writes tiled images/labels to <dest>/images and <dest>/labels.
-# - If <src>/classes.txt exists, copies it to <dest>/classes.txt and writes
-#   <dest>/data.yaml (names/nc/train: images) so merge_datasets.py can
-#   consume the output directly.
+# - If <src>/classes.txt exists, copies it to <dest>/classes.txt, which
+#   yolonas-training/scripts/build_training_data.py requires in every dataset.
+# - Skips images smaller than the tile size (see filter_low_res.py).
 #
-# How to use:
+# How to use (run from data-cleaning/; relative --src/--dest are resolved
+# against the shared top-level data/ directory, not the current directory):
 # - Default run (sizes=2048; overlap=0.5):
 #   python3 scripts/tile_building_defect_images.py
 # - Customize tile sizes/overlap:
@@ -116,9 +117,9 @@ def write_labels(out_path: Path, labels: list[tuple[int, float, float, float, fl
 
 
 def write_dataset_metadata(src_root: Path, out_root: Path) -> None:
-    """Propagate classes.txt and write a data.yaml so downstream tools
-    (e.g. merge_datasets.py, which hard-requires a data.yaml with a
-    `train:` key) can consume the tiled output directly.
+    """Propagate classes.txt so downstream tools (e.g. build_training_data.py,
+    which requires an identical classes.txt in every dataset) can consume
+    the tiled output directly.
     """
     src_classes = src_root / "classes.txt"
     if not src_classes.exists():
@@ -129,14 +130,6 @@ def write_dataset_metadata(src_root: Path, out_root: Path) -> None:
         return
 
     (out_root / "classes.txt").write_text("\n".join(names) + "\n")
-
-    data_yaml_lines = [
-        "names:",
-        *[f"- {name}" for name in names],
-        f"nc: {len(names)}",
-        "train: images",
-    ]
-    (out_root / "data.yaml").write_text("\n".join(data_yaml_lines) + "\n")
 
 
 def tile_image(
