@@ -189,6 +189,7 @@ python scripts/build_training_data.py \
 | Optional, off by default | `USE_COPY_PASTE` (rare-class copy-paste, `copy_paste_aug.py`), `USE_WEIGHTED_SAMPLING` |
 
 - **Output.** Checkpoints go to `../models/building_defect_yolo_nas_m/RUN_<timestamp>/`: `ckpt_best.pth` (use this for inference), `ckpt_latest.pth`, `average_model.pth`.
+- **Run record.** After training, the cell following the one that loads the best model writes `run_info.txt` into the same folder: the datasets and tile counts, the main settings, the best epoch and its validation scores overall and per class. It reads the metrics recorded during training, so run it in the same session as the training cell. Hand the whole `RUN_` folder over with the model so the record goes with it.
 - **To continue from an existing model** instead of COCO weights, set `INIT_SOURCE = "checkpoint"` and `CHECKPOINT_PATH`.
 - **To resume an interrupted run**, set `RESUME_PATH` to that run's `ckpt_latest.pth` and `RESUME_TRAINING = True`. The resumed run writes into a new `RUN_` folder.
 - **PyTorch note.** The first cell sets `TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD`. Without it, training crashes after the second epoch on PyTorch 2.6 or newer; leave it in.
