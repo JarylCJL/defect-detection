@@ -1,5 +1,5 @@
 # Batch inference configuration
-input_data: input-data/test-dataset-166/images
+input_data: input-data/test-data/images
 output_dir: output-preds
 
 # Model settings
@@ -8,7 +8,7 @@ model_type: yolo-nas-m
 # SuperGradients' Trainer writes checkpoints to {models}/{EXPERIMENT_NAME}/RUN_*/...
 # where EXPERIMENT_NAME="building_defect_yolo_nas_m" (set in yolonas-training/train.ipynb).
 # Update <RUN_ID> below once a training run exists in the new models/ location.
-checkpoint_path: ../models/building_defect_yolo_nas_m/<RUN_ID>/ckpt_best.pth
+checkpoint_path: ../models/5class-640p-100epoch/ckpt_best.pth
 num_classes: 5
 class_names:
   - corrosion
