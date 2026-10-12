@@ -22,6 +22,22 @@ The repo has three stages, each in its own folder, sharing one `data/` and one `
 
 Only code is tracked in git. `data/`, `models/`, the train/val/test split and inference inputs/outputs exist on disk only (see `.gitignore`).
 
+## Quick start: run the model on new photos
+
+If you have a trained model and only want predictions, this is all you need. Stages 1 and 2 further down are only for adding data or retraining.
+
+1. Set up the environment once: `./setup_venv.sh` (see [Setup](#setup)).
+2. Put the model's `ckpt_best.pth` somewhere under `models/`, and the photos in a folder under `batch_inference/input-data/`.
+3. In `batch_inference/config.yaml`, set `input_data` to the photo folder and `checkpoint_path` to the model file. Both are relative to `batch_inference/`, e.g. `input-data/my-photos` and `../models/<folder>/ckpt_best.pth`.
+4. Run it from `batch_inference/`:
+   ```bash
+   cd batch_inference
+   python batch_inference.py --config config.yaml
+   ```
+5. Open `batch_inference/output-preds/<timestamp>/images-overlaid/` to see the photos with the detected defects drawn on them.
+
+[Stage 3](#stage-3-inference) explains the settings and the other output files.
+
 ## Pipeline at a glance
 
 ```
@@ -58,6 +74,15 @@ These hold across every stage; most errors come from breaking one of them.
 
 ## Setup
 
+**Requirements**
+
+- Linux, or Windows with WSL2. Developed and tested on Ubuntu 26.04 under WSL2.
+- An NVIDIA GPU with at least 8 GB of memory and a working driver: `nvidia-smi` must list the GPU. No separate CUDA install is needed; PyTorch brings its own.
+- Disk space: the full set of datasets under `data/` is about 170 GB, the train/val split adds about 26 GB, and each trained run about 1.5 GB.
+- `git`, `curl` and a C build toolchain, which `pyenv` uses to compile Python.
+
+**Install**
+
 Python 3.10.19 in a `pyenv-virtualenv` named `defect-detection` (`super-gradients` only supports up to 3.10). `.python-version` at the repo root activates it automatically in any subdirectory.
 
 ```bash
@@ -81,6 +106,24 @@ Two things worth knowing:
   patchelf --clear-execstack "$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"/onnxruntime/capi/onnxruntime_pybind11_state*.so
   ```
   `setup_venv.sh` does not do this; repeat it if the virtualenv is rebuilt.
+
+**Check that it worked**
+
+Run these from the repo root. Nothing here changes any file.
+
+```bash
+# 1. Libraries import and the GPU is visible (keep the -u: without it the output is swallowed)
+python -u -c "import torch, super_gradients, sahi; print('torch', torch.__version__, '| super-gradients', super_gradients.__version__); print('GPU:', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'NOT AVAILABLE')"
+
+# 2. The COCO starting weights are in place
+ls ~/.cache/torch/hub/checkpoints/yolo_nas_m_coco.pth
+
+# 3. Once the datasets are in data/: they are complete and consistent (checks only, writes nothing)
+python yolonas-training/scripts/build_training_data.py --dry-run \
+  --datasets data/data-tiled/<a> data/data-tiled/<b> ...
+```
+
+Expected: the first prints the library versions and the GPU's name, the second lists the file, and the third ends with `Dry run: all checks passed`.
 
 ## Stage 1: Data preparation
 
@@ -162,7 +205,7 @@ python scripts/build_training_data.py \
 Run from `batch_inference/`; paths in the config are relative to that folder.
 
 1. Put the photos to score in a folder under `input-data/`.
-2. Edit `config.yaml`: set `input_data` to that folder and `checkpoint_path` to the model, e.g. `../models/building_defect_yolo_nas_m/RUN_<timestamp>/ckpt_best.pth`. As committed, both are placeholders.
+2. Edit `config.yaml`: set `input_data` to that folder and `checkpoint_path` to the model, e.g. `../models/building_defect_yolo_nas_m/RUN_<timestamp>/ckpt_best.pth`. Both are specific to your machine and the run you want to use, so check them before every run.
 3. Run:
    ```bash
    python batch_inference.py --config config.yaml
@@ -225,14 +268,6 @@ defect-detection/
 - **`cleanup_checkpoints.py`** deletes `RUN_*` folders under `models/building_defect_yolo_nas_m/` that are not listed in `models/checkpoint-map.txt`. Run it with `--dry-run` first.
 - **`clear_splits.sh`** empties `training-data/`. `build_training_data.py` now does this itself and keeps the tracked `.gitkeep` files, which this script deletes.
 - **`clear_output_preds.py`** empties `batch_inference/output-preds/`.
-
-## Known limitations
-
-- **Very small defects are at the edge of what the model can see.** A 2048 px tile is shrunk to 640 px, so a 15 px defect becomes about 5 px, and mosaic augmentation shrinks it further. Datasets shot from far away (such as `tf_r2`) are affected most. Smaller tiles would help, but training tiles and inference slices would both have to change, for every dataset.
-- **Images are fed to the model as 0–255, not scaled to 0–1.** Training and inference are consistent with each other, so it works, but it differs from how the COCO weights were trained. Changing it would make a new model incomparable with existing ones.
-- **No held-out test set by default.** The split is train/val only unless `--test-ratio` is passed, and the best checkpoint is chosen on val, so val scores are optimistic. Keep some photos aside to judge a model honestly.
-- **Validation scores are not comparable across split methods.** Models trained before `build_training_data.py` used a per-tile split that leaked overlapping tiles into val and scored higher for that reason.
-- **Fine-tuning on a new dataset is not built.** `INIT_SOURCE = "checkpoint"` loads an existing model, but there is no lower-learning-rate recipe, no mixing-in of older data, and no before/after evaluation.
 
 ## Superseded files
 
