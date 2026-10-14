@@ -22,6 +22,8 @@ The repo has three stages, each in its own folder, sharing one `data/` and one `
 
 Only code is tracked in git. `data/`, `models/`, the train/val/test split and inference inputs/outputs exist on disk only (see `.gitignore`).
 
+This readme says how to run each stage. [`docs/training.md`](docs/training.md) explains why the pipeline and training are set up this way.
+
 ## Quick start: run the model on new photos
 
 If you have a trained model and only want predictions, this is all you need. Stages 1 and 2 further down are only for adding data or retraining.
@@ -231,6 +233,8 @@ The main settings:
 defect-detection/
 ├── setup_venv.sh                         # environment bootstrap (+ COCO weights)
 ├── requirements.txt
+├── docs/
+│   └── training.md                       # training rationale
 ├── data/                                 # not tracked
 │   ├── data_raw/                         #   raw source datasets
 │   ├── data-cleaned/                     #   older 3-class cleaned sets
