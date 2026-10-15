@@ -170,12 +170,23 @@ Run from `yolonas-training/`.
 python scripts/build_training_data.py \
   --datasets ../data/data-tiled/<a> ../data/data-tiled/<b> ...
 ```
-- Writes straight into `training-data/{train,val,test}`; there is no intermediate merged dataset. It clears the previous split first.
+- Writes straight into `training-data/{train,val,test}`; there is no intermediate merged dataset. It clears the previous split first, including the old `split_manifest.csv` and `split_report.txt`; `classes.txt` is kept and only rewritten if the class list changed.
 - Checks everything before touching a file: every dataset has `images/`, `labels/` and `classes.txt`; all `classes.txt` are identical; every label row is a valid five-field YOLO row. On a mismatch it lists which datasets disagree.
 - Splits by **source photo**, per dataset: all tiles cut from one photo go to the same split, so overlapping tiles never leak between train and val, and every dataset is represented in val.
 - Default is 80/20 train/val. `--val-ratio`, `--test-ratio` and `--seed` change it; a dataset's split depends only on the seed and its folder name, so adding a dataset later does not reshuffle the others.
-- `--dry-run` runs the checks and prints the report (tiles per dataset per split, boxes per class, class id mapping) without writing.
+- `--dry-run` runs the checks and prints the report without writing anything.
 - Also writes `training-data/split_manifest.csv`, recording which photo went to which split.
+- Ends with a report, printed and saved as `training-data/split_report.txt`. It starts with the **class distribution**: for each class, its boxes in train and val, val's share of them against the target ratio, and how many photos and tiles contain it. Then tiles per dataset per split, boxes per class per dataset, warnings (including any class more than 2 percentage points off target), and the class id mapping.
+
+**Alternative: a class-balanced split.** Splitting each dataset 80/20 by photo does not split each class 80/20. With the current data, each class's share of boxes in val ranges from 16.5% to 27.7%. `build_training_data_class_balanced.py` takes the same arguments and writes the same files, but chooses the split so that every class lands at the target ratio, measured in boxes:
+```bash
+python scripts/build_training_data_class_balanced.py \
+  --datasets ../data/data-tiled/<a> ../data/data-tiled/<b> ...
+```
+- Source photos are still kept whole, so it is best effort: a class concentrated in very few photos cannot be split exactly, and the report warns when a class misses its target. On the current data every class lands within 0.1 percentage points of 20%.
+- `--val-ratio` and `--test-ratio` set the target share for every class; `--dry-run` previews the split and report.
+- The same `--seed` gives the same split, but adding or removing a dataset can move other datasets' photos between train and val, because all classes are balanced across all datasets together. Use `build_training_data.py` when you need existing datasets' val photos to stay put between builds.
+- Use one script or the other; `train.ipynb` works the same with either.
 
 **2. Train.** Open `train.ipynb`, select the `defect-detection` kernel, and run all cells.
 
@@ -254,7 +265,8 @@ defect-detection/
 │   ├── copy_paste_aug.py                 # optional rare-class copy-paste augmentation
 │   ├── training-data/                    # the train/val/test split (contents not tracked)
 │   └── scripts/
-│       ├── build_training_data.py        # datasets -> training-data/ split
+│       ├── build_training_data.py        # datasets -> training-data/ split (by photo, per dataset)
+│       ├── build_training_data_class_balanced.py  # alternative: split balanced per class
 │       ├── cleanup_checkpoints.py        # delete RUN_* folders not in a keep-list
 │       └── clear_splits.sh               # empties training-data/ (redundant; see below)
 └── batch_inference/
@@ -271,7 +283,7 @@ defect-detection/
 - **`restore_selected_classes.py`** is the older route to a five-class dataset: it takes a three-class cleaned set and adds `plant_growth` / `crack_glass` back from raw. It cannot recover images that contained only those two classes, because the three-class cleaning already dropped them. For new datasets use `clean_to_x_classes.py` with all five classes instead. Its dataset list is hardcoded and it reprocesses every dataset on each run.
 - **`yolo_to_ls_predictions.py`** turns a dataset's YOLO labels into Label Studio import JSON with pre-drawn boxes, for reviewing or correcting annotations.
 - **`cleanup_checkpoints.py`** deletes `RUN_*` folders under `models/building_defect_yolo_nas_m/` that are not listed in `models/checkpoint-map.txt`. Run it with `--dry-run` first.
-- **`clear_splits.sh`** empties `training-data/`. `build_training_data.py` now does this itself and keeps the tracked `.gitkeep` files, which this script deletes.
+- **`clear_splits.sh`** empties `training-data/`: the split folders, `split_manifest.csv` and `split_report.txt` (it keeps `classes.txt`). Both build scripts now do this themselves and keep the tracked `.gitkeep` files, which this script deletes.
 - **`clear_output_preds.py`** empties `batch_inference/output-preds/`.
 
 ## Superseded files

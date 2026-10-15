@@ -191,6 +191,16 @@ The model still learns what background looks like. Every training tile that cont
 - **80/20 ratio.** This is a common default. Early runs used 90/10 because there was little data and as much as possible was kept for training. As the dataset grew, 80/20 became affordable.
 - **Reproducible.** The split depends only on a seed (42) and each dataset's folder name, so adding a dataset later does not reshuffle the others. `training-data/split_manifest.csv` records which photo went to which split.
 - **Checked before anything is written.** The script stops if any dataset is missing `images/`, `labels/` or `classes.txt`, if the `classes.txt` files differ, or if a label row is not a plain five-field YOLO box.
+- **Class distribution report.** Each build ends with a report, saved as `training-data/split_report.txt`, showing for every class how many boxes are in train and val, val's share against the target, and how many photos and tiles contain it.
+
+**Class-balanced alternative.** Splitting each dataset 80/20 by photo does not split each class 80/20, because photos differ in which defects they contain and how many. On the current data, each class's share of boxes in validation ranges from 16.5% (spall) to 27.7% (corrosion). `build_training_data_class_balanced.py` is an alternative to `build_training_data.py` with the same inputs, checks and outputs. It chooses the split so that every class is divided at the target ratio, measured in boxes:
+
+- Photos are still kept whole, for the leakage reason above. Since a photo usually contains several classes, an exact split per class is not always possible, so the script works on a best-effort basis and the report flags any class more than 2 percentage points off target.
+- Photos are first placed rarest-class-first, each into the split that most needs that class (iterative stratification, a standard method for splitting data where each item carries several labels). The split is then refined by moving and swapping single photos while that brings the classes closer to target.
+- On the current data, every class lands within 0.1 percentage points of 20%.
+- The trade-off is stability. The same seed gives the same split, but adding a dataset can move existing photos between train and val, because the classes are balanced across all datasets together. `build_training_data.py` keeps each dataset's split fixed, which suits comparing models on the same validation photos.
+
+The latest model was trained on the per-dataset split from `build_training_data.py`.
 
 One dataset, `building-defect`, comes from a Roboflow export, and Roboflow exports can contain several augmented copies of the same original photo under different names. If they did, copies of one photo could still land on both sides of the split. A check of the current split found that 8 originals have more than one copy, and none of them spans train and val.
 
