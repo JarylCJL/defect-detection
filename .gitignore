@@ -22,8 +22,9 @@
 /yolonas-training/training-data/test/labels/*
 !/yolonas-training/training-data/**/.gitkeep
 
-# rewritten by build_training_data.py on every build
+# rewritten by build_training_data.py / build_training_data_class_balanced.py on every build
 /yolonas-training/training-data/split_manifest.csv
+/yolonas-training/training-data/split_report.txt
 
 # local scratch staging (formerly created by merge_datasets.py), not part of the tracked layout
 /yolonas-training/datasets/

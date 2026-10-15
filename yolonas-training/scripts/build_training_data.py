@@ -23,13 +23,21 @@
 #   contributes its own share to val/test. A dataset's split depends only on
 #   --seed and its folder name, so adding another dataset later does not
 #   reshuffle it.
-# - Clears <dst>/{train,val,test}/{images,labels} (keeping .gitkeep files), then
-#   copies each image and its label unchanged, named <file>_<dataset>.
-# - Writes <dst>/classes.txt and <dst>/split_manifest.csv (split, dataset,
-#   source photo, file).
-# - Prints a report: photos/tiles per dataset per split, boxes per class,
-#   warnings (a class with no boxes, or missing from train or val), and
-#   finally the class id mapping used for training.
+# - Clears <dst>/{train,val,test}/{images,labels} (keeping .gitkeep files) and
+#   deletes the old split_manifest.csv and split_report.txt, then copies each
+#   image and its label unchanged, named <file>_<dataset>. classes.txt is kept
+#   and only rewritten if the class list has changed.
+# - Writes <dst>/classes.txt, <dst>/split_manifest.csv (split, dataset,
+#   source photo, file) and <dst>/split_report.txt.
+# - Prints a report (also saved as split_report.txt): the class distribution
+#   (boxes per class per split, each split's share of the class against the
+#   --val-ratio/--test-ratio target, and photos/tiles containing each class),
+#   photos/tiles per dataset per split, boxes per class per dataset, warnings
+#   (a class with no boxes, missing from train or val, or more than 2
+#   percentage points off target), and the class id mapping used for training.
+# - This split is by photo per dataset, so each class's share usually lands
+#   near, not on, the target. For a split that targets every class's share
+#   directly, use build_training_data_class_balanced.py instead.
 #
 # How to use (paths are relative to the current directory; examples assume you
 # are in yolonas-training/):
@@ -40,6 +48,7 @@
 #                ../data/data-tiled/tf_r2-5defect-tiled
 # - Check the datasets and preview the split without writing anything:
 #   python scripts/build_training_data.py --datasets ... --dry-run
+#   (the dry run prints the class distribution report too; it is only saved on a real run)
 # - Hold out a test set as well (80/10/10):
 #   python scripts/build_training_data.py --datasets ... --val-ratio 0.1 --test-ratio 0.1
 # - Write somewhere other than yolonas-training/training-data:
@@ -52,6 +61,7 @@ import csv
 import random
 import re
 import shutil
+from datetime import datetime
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -67,6 +77,10 @@ SPLITS = ("train", "val", "test")
 # Suffix added by tile_building_defect_images.py: <photo>_s<size>_x<x0>_y<y0>
 TILE_SUFFIX_RE = re.compile(r"_s\d+_x\d+_y\d+$")
 MAX_EXAMPLES = 10
+# Allowed deviation (percentage points) before a class is flagged in the report.
+OFF_TARGET_WARNING_PP = 2.0
+# Classes found in fewer photos than this are flagged as hard to split reliably.
+FEW_PHOTOS_WARNING = 10
 
 
 @dataclass
@@ -258,7 +272,8 @@ def assign_splits(dataset: Dataset, val_ratio: float, test_ratio: float, seed: i
 
 
 def clear_split_dirs(dst_root: Path) -> None:
-    """Empty <dst>/{train,val,test}/{images,labels}, keeping .gitkeep files."""
+    """Empty <dst>/{train,val,test}/{images,labels}, keeping .gitkeep files, and delete
+    the old split_manifest.csv and split_report.txt, which describe the split being removed."""
     for split in SPLITS:
         for sub in ("images", "labels"):
             folder = dst_root / split / sub
@@ -270,6 +285,10 @@ def clear_split_dirs(dst_root: Path) -> None:
                     shutil.rmtree(entry)
                 else:
                     entry.unlink()
+    # Removed together with the split they describe, so a build that fails partway
+    # leaves no report that looks valid. The new ones are written at the end of a build.
+    for stale in ("split_manifest.csv", "split_report.txt"):
+        (dst_root / stale).unlink(missing_ok=True)
 
 
 def write_outputs(datasets: list[Dataset], class_names: list[str], dst_root: Path) -> None:
@@ -304,58 +323,103 @@ def write_outputs(datasets: list[Dataset], class_names: list[str], dst_root: Pat
         writer.writerows(sorted(manifest_rows))
 
 
-def print_table(headers: list[str], rows: list[list], indent: str = "  ") -> None:
+def format_table(headers: list[str], rows: list[list], indent: str = "  ") -> list[str]:
     cells = [headers] + [[f"{v:,}" if isinstance(v, int) else str(v) for v in row] for row in rows]
     widths = [max(len(row[col]) for row in cells) for col in range(len(headers))]
+    lines = []
     for row in cells:
         first = row[0].ljust(widths[0])
         rest = "  ".join(cell.rjust(widths[col + 1]) for col, cell in enumerate(row[1:]))
-        print(f"{indent}{first}  {rest}")
+        lines.append(f"{indent}{first}  {rest}")
+    return lines
 
 
-def print_report(datasets: list[Dataset], class_names: list[str]) -> None:
+def build_report(datasets: list[Dataset], class_names: list[str], ratios: dict[str, float]) -> list[str]:
+    """Report lines: class distribution first, then per-dataset tables, warnings, class ids."""
+    used_splits = [split for split in SPLITS if ratios.get(split, 0) > 0]
+    held_out = [split for split in used_splits if split != "train"]
+    split_items = {split: [item for dataset in datasets for item in dataset.splits[split]] for split in SPLITS}
+
     def box_counts(items: list[Item]) -> Counter:
         counts: Counter = Counter()
         for item in items:
             counts.update(item.class_ids)
         return counts
 
-    print("Photos and tiles per dataset (photos / tiles):")
+    boxes = {split: box_counts(split_items[split]) for split in SPLITS}
+    totals = box_counts([item for dataset in datasets for item in dataset.items])
+    lines: list[str] = []
+    warnings: list[str] = []
+
+    # --- class distribution, in boxes ---
+    lines.append("Class distribution (boxes per class; share = that split's part of the class's boxes):")
+    headers = ["class"] + [f"{split} boxes" for split in used_splits] + ["total"]
+    for split in held_out:
+        headers += [f"{split} share", "target", "off by"]
     rows = []
-    totals = {split: [0, 0] for split in SPLITS}
+    for class_id, name in enumerate(class_names):
+        row = [name] + [boxes[split][class_id] for split in used_splits] + [totals[class_id]]
+        for split in held_out:
+            share = 100.0 * boxes[split][class_id] / totals[class_id] if totals[class_id] else 0.0
+            target = 100.0 * ratios[split]
+            off_by = share - target
+            row += [f"{share:.1f}%", f"{target:.0f}%", "0.0 pp" if abs(off_by) < 0.05 else f"{off_by:+.1f} pp"]
+            if totals[class_id] and abs(share - target) > OFF_TARGET_WARNING_PP:
+                warnings.append(
+                    f"class '{name}': {split} share {share:.1f}% is {abs(share - target):.1f} pp from the {target:.0f}% target"
+                )
+        rows.append(row)
+    lines += format_table(headers, rows)
+
+    # --- photos and tiles containing each class ---
+    lines.append("")
+    lines.append("Photos / tiles containing each class:")
+    photos_with = {split: Counter() for split in SPLITS}
+    tiles_with = {split: Counter() for split in SPLITS}
+    for split in SPLITS:
+        seen: dict[tuple[str, str], set[int]] = {}
+        for dataset in datasets:
+            for item in dataset.splits[split]:
+                classes_here = set(item.class_ids)
+                tiles_with[split].update(classes_here)
+                seen.setdefault((dataset.name, item.photo), set()).update(classes_here)
+        for classes_here in seen.values():
+            photos_with[split].update(classes_here)
+    rows = []
+    for class_id, name in enumerate(class_names):
+        row = [name] + [f"{photos_with[s][class_id]:,} / {tiles_with[s][class_id]:,}" for s in used_splits]
+        rows.append(row)
+        total_photos = sum(photos_with[s][class_id] for s in SPLITS)
+        if 0 < total_photos < FEW_PHOTOS_WARNING:
+            warnings.append(f"class '{name}' appears in only {total_photos} photo{'' if total_photos == 1 else 's'}, too few to split reliably")
+    lines += format_table(["class"] + [f"{s} photos / tiles" for s in used_splits], rows)
+
+    # --- per dataset ---
+    lines.append("")
+    lines.append("Photos and tiles per dataset (photos / tiles):")
+    rows = []
+    split_totals = {split: [0, 0] for split in SPLITS}
     for dataset in datasets:
         row = [dataset.name]
         for split in SPLITS:
             items = dataset.splits[split]
             photos = len({item.photo for item in items})
-            totals[split][0] += photos
-            totals[split][1] += len(items)
+            split_totals[split][0] += photos
+            split_totals[split][1] += len(items)
             row.append(f"{photos:,} / {len(items):,}")
         rows.append(row)
-    rows.append(["total"] + [f"{totals[s][0]:,} / {totals[s][1]:,}" for s in SPLITS])
-    print_table(["dataset", *SPLITS], rows)
+    rows.append(["total"] + [f"{split_totals[s][0]:,} / {split_totals[s][1]:,}" for s in SPLITS])
+    lines += format_table(["dataset", *SPLITS], rows)
 
-    print()
-    print("Boxes per class per dataset:")
+    lines.append("")
+    lines.append("Boxes per class per dataset:")
     rows = []
     for dataset in datasets:
         counts = box_counts(dataset.items)
         rows.append([dataset.name] + [counts[class_id] for class_id in range(len(class_names))])
-    print_table(["dataset", *class_names], rows)
+    lines += format_table(["dataset", *class_names], rows)
 
-    print()
-    print("Boxes per class per split:")
-    split_counts_by_name = {
-        split: box_counts([item for dataset in datasets for item in dataset.splits[split]])
-        for split in SPLITS
-    }
-    rows = [
-        [split] + [split_counts_by_name[split][class_id] for class_id in range(len(class_names))]
-        for split in SPLITS
-    ]
-    print_table(["split", *class_names], rows)
-
-    warnings = []
+    # --- warnings ---
     for dataset in datasets:
         if dataset.images_without_label:
             warnings.append(
@@ -363,32 +427,28 @@ def print_report(datasets: list[Dataset], class_names: list[str]) -> None:
             )
         if dataset.labels_without_image:
             warnings.append(f"{dataset.name}: label files with no image: {dataset.labels_without_image}")
-        if not dataset.splits["val"]:
+        if ratios.get("val", 0) > 0 and not dataset.splits["val"]:
             warnings.append(f"{dataset.name}: contributes nothing to val")
     for class_id, name in enumerate(class_names):
-        in_train = split_counts_by_name["train"][class_id]
-        in_val = split_counts_by_name["val"][class_id]
-        total = in_train + in_val + split_counts_by_name["test"][class_id]
-        if total == 0:
+        if totals[class_id] == 0:
             warnings.append(f"class '{name}' has no boxes in any dataset")
-        elif in_train == 0:
+        elif boxes["train"][class_id] == 0:
             warnings.append(f"class '{name}' has no boxes in train")
-        elif in_val == 0:
+        elif ratios.get("val", 0) > 0 and boxes["val"][class_id] == 0:
             warnings.append(f"class '{name}' has no boxes in val")
 
-    print()
+    lines.append("")
     if warnings:
-        print("Warnings:")
-        for warning in warnings:
-            print(f"  - {warning}")
+        lines.append("Warnings:")
+        lines += [f"  - {warning}" for warning in warnings]
     else:
-        print("Warnings: none")
+        lines.append("Warnings: none")
 
-    print()
-    print("Class ids used for training:")
-    grand_total = box_counts([item for dataset in datasets for item in dataset.items])
+    lines.append("")
+    lines.append("Class ids used for training:")
     for class_id, name in enumerate(class_names):
-        print(f"  {class_id}: {name:<20} {grand_total[class_id]:>9,} boxes")
+        lines.append(f"  {class_id}: {name:<20} {totals[class_id]:>9,} boxes")
+    return lines
 
 
 def main() -> None:
@@ -475,16 +535,24 @@ def main() -> None:
     if not args.dry_run:
         write_outputs(datasets, class_names, dst_root)
 
+    ratios = {"train": 1.0 - args.val_ratio - args.test_ratio, "val": args.val_ratio, "test": args.test_ratio}
+    report = [
+        f"Report from  : build_training_data.py, {datetime.now():%Y-%m-%d %H:%M}",
+        f"Destination  : {dst_root}",
+        f"Split        : by source photo per dataset, val {args.val_ratio}, test {args.test_ratio}, seed {args.seed}",
+        f"Datasets     : {', '.join(dataset.name for dataset in datasets)}",
+        "",
+        *build_report(datasets, class_names, ratios),
+    ]
     print()
-    print(f"Destination : {dst_root}")
-    print(f"Split       : val {args.val_ratio}, test {args.test_ratio}, seed {args.seed} (by source photo, per dataset)")
-    print()
-    print_report(datasets, class_names)
+    print("\n".join(report))
     print()
     if args.dry_run:
         print("Dry run: all checks passed; nothing was cleared or copied.")
     else:
+        (dst_root / "split_report.txt").write_text("\n".join(report) + "\n", encoding="utf-8")
         print(f"Training data written to: {dst_root}")
+        print(f"Report saved to: {dst_root / 'split_report.txt'}")
 
 
 if __name__ == "__main__":
