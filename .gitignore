@@ -1,5 +1,7 @@
 # Data and model payloads are deliberately excluded - see readme.md for the
 # migration plan. Directory placeholders (.gitkeep) are still tracked.
+/label_studio_exports/*
+!/label_studio_exports/.gitkeep
 /data/data_raw/*
 /data/data-cleaned/*
 /data/data-tiled/*
