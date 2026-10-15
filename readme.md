@@ -43,6 +43,9 @@ If you have a trained model and only want predictions, this is all you need. Sta
 ## Pipeline at a glance
 
 ```
+label_studio_exports/<export>/            Label Studio export: one folder per project
+   │  combine_label_studio_projects.py    combine the projects, one class list for all
+   ▼
 data/data_raw/<name>                      raw photos + YOLO labels (any class list)
    │  dataset_eda.ipynb                   look before you clean (read-only)
    │  clean_to_x_classes.py               keep the 5 classes, drop images with nothing left
@@ -131,6 +134,17 @@ Expected: the first prints the library versions and the GPU's name, the second l
 
 Run from `data-cleaning/`. The example brings a new raw dataset called `<name>` into the pipeline.
 
+**0. Combine a Label Studio export (only for Label Studio data).** Label Studio exports one folder per project, each with its own `images/`, `labels/`, and `classes.txt` and/or `notes.json`. Put the whole export in `label_studio_exports/<export>/` at the repo root, then combine it into one raw dataset in `data/data_raw/`:
+```bash
+python scripts/combine_label_studio_projects.py \
+  --src  ../label_studio_exports/<export> \
+  --dest ../data/data_raw/<name>
+```
+- Writes `--dest` (here `data/data_raw/<name>/`) with `images/`, `labels/`, `classes.txt`, `notes.json` and `combine_report.txt`.
+- A project's export only lists the classes used in that project, so the lists can differ. The combined list holds every class found in any project (project A with corrosion, spall and project B with corrosion, crack gives corrosion, crack, spall), and every label's class ids are renumbered to it, so one id means one class throughout.
+- Each project's class list is read from `classes.txt`, `notes.json`, or both; if both exist they must agree.
+- Stops if a file name appears in more than one project (the same photo exported twice). Nothing is cleaned: every class and image is kept. `--dry-run` checks and reports without writing.
+
 **1. Look at the raw data.** Open `dataset_eda.ipynb`, set `DATASET_DIR` to `../data/data_raw/<name>` and run it. It only reads. It reports image/label pairing, boxes per class, resolutions, how many images are smaller than a tile, and box sizes in pixels per class. It works on cleaned and tiled datasets too.
 
 **2. Keep the five classes.**
@@ -143,6 +157,7 @@ python scripts/clean_to_x_classes.py \
   --keep corrosion crack spall plant_growth crack_glass
 ```
 - `--classes` is the file listing the *source* dataset's classes: `classes.txt`, `data.yaml` (Roboflow-style exports, usually one level above `train/`) or `notes.json` (Label Studio).
+- Or give the dataset folder alone with `--src ../data/data_raw/<name>` instead of `--images`, `--labels` and `--classes`. It uses `images/`, `labels/`, and `classes.txt` and/or `notes.json` (which must agree if both exist), or `data.yaml`.
 - `--keep` lists the classes to keep; its order sets the output ids, so always use the order above. Names are normalised (spaces become `_`, lowercase), so a source class `plant growth` is matched by `plant_growth`.
 - Images left with no annotations are dropped. The raw folder is never modified.
 - It prints a summary including label problems found in the source (unknown class ids, labels with no image, invalid rows).
@@ -246,6 +261,7 @@ defect-detection/
 ├── requirements.txt
 ├── docs/
 │   └── training.md                       # training rationale
+├── label_studio_exports/                 # not tracked; Label Studio exports, one folder per project
 ├── data/                                 # not tracked
 │   ├── data_raw/                         #   raw source datasets
 │   ├── data-cleaned/                     #   older 3-class cleaned sets
@@ -255,6 +271,7 @@ defect-detection/
 ├── data-cleaning/
 │   ├── dataset_eda.ipynb                 # read-only EDA for any dataset
 │   └── scripts/
+│       ├── combine_label_studio_projects.py # Label Studio projects -> one raw dataset
 │       ├── clean_to_x_classes.py         # keep chosen classes, drop empty images
 │       ├── filter_low_res.py             # drop photos below a minimum resolution
 │       ├── tile_building_defect_images.py# cut photos into overlapping tiles

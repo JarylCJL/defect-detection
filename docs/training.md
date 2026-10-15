@@ -123,6 +123,9 @@ Processing N tiles instead of one image costs roughly N times as much compute. T
 ## 3. Data pipeline
 
 ```
+label_studio_exports/<export>/            Label Studio export: one folder per project
+   │  combine_label_studio_projects.py    combine the projects, one class list for all
+   ▼
 data/data_raw/<name>                      raw photos + YOLO labels (any class list)
    │  clean_to_x_classes.py               keep the 5 classes, drop images left with no boxes
    ▼
@@ -156,6 +159,8 @@ This illustrates a general failure mode: the model learns whatever feature insid
 **(c) Splitting long cracks into segments.** Some cracks run across an entire wall. One box around the whole run is mostly undamaged wall, an extreme case of (a), and its size is far outside the range of every other crack box. Long cracks are now annotated as a series of tighter boxes along the crack's path.
 
 ### 3.2 Class filtering and resolution filtering
+
+**`combine_label_studio_projects.py`** is the entry point for Label Studio data. Label Studio exports each project as its own folder, and each project's `classes.txt` and `notes.json` list only the classes used in that project, so class ids differ between projects. The script combines all projects of an export into one raw dataset in `data/data_raw/`. Its class list holds every class found in any project, and every label is renumbered to it, so one id means one class throughout. It keeps every class and image; choosing the classes is left to the next step.
 
 **`clean_to_x_classes.py`** reads a raw dataset in any class list and keeps only the five target classes, renumbering them into the standard order. Images left with no boxes are dropped, for the reasons given in §3.3. It also reports label problems found in the source, such as unknown class ids or labels without an image. The raw folder is never modified.
 

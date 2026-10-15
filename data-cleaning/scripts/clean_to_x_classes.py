@@ -4,7 +4,8 @@
 #
 # What it does:
 # - Reads images from --images and YOLO-format labels from --labels (both flat
-#   folders, paired by filename stem).
+#   folders, paired by filename stem). Or give --src, a dataset folder, and
+#   --images, --labels and --classes are worked out from it (see "--src" below).
 # - Accepts plain YOLO box rows only: exactly 5 fields (class cx cy w h), a
 #   whole-number class id and four numbers between 0 and 1. Any other row
 #   (e.g. polygon / oriented-box rows with more than 5 fields) is skipped and
@@ -34,6 +35,17 @@
 # - .json (notes.json): the `categories` list of {"id", "name"} entries. Comes
 #   with Label Studio YOLO exports, sometimes without a classes.txt
 #   (Ray_CrackedGlass_Synthetic).
+#
+# --src (instead of --images / --labels / --classes):
+# - --images = <src>/images, --labels = <src>/labels.
+# - --classes = <src>/classes.txt and/or <src>/notes.json (as Label Studio
+#   exports both). If both exist they must list the same classes in the same
+#   order; if they disagree it stops, and you choose one with --classes. If
+#   neither exists, data.yaml in <src> or one level up (Roboflow layout) is used.
+# - Any of --images, --labels or --classes given explicitly overrides the
+#   folder worked out from --src.
+# - A folder of several Label Studio projects (one subfolder each) is not a
+#   dataset: combine it first with combine_label_studio_projects.py.
 #
 # Safeguards:
 # - Stops if two source class names become identical after normalisation.
@@ -66,6 +78,11 @@
 #     --classes ../data/data_raw/<name>/data.yaml \
 #     --dest ../data/data-cleaned/<name>_cleaned \
 #     --keep corrosion crack spall
+# - Same, giving the dataset folder only (Label Studio export or the output of
+#   combine_label_studio_projects.py):
+#   python scripts/clean_to_x_classes.py --src ../data/data_raw/tf_rbb_all \
+#     --dest ../data/data-5defect/tf_rbb-5defect \
+#     --keep corrosion crack spall plant_growth crack_glass
 # - Replace an existing output folder: add --overwrite
 # -----------------------------------------------------------------------------
 from __future__ import annotations
@@ -250,18 +267,57 @@ def filter_label_rows(
     return kept
 
 
+def paths_from_src(src: Path) -> tuple[Path, Path, Path | None]:
+    """Work out --images, --labels and --classes from a dataset folder."""
+    if not src.is_dir():
+        raise SystemExit(f"--src folder not found: {src}")
+    if not (src / "images").is_dir() or not (src / "labels").is_dir():
+        projects = [p.name for p in sorted(src.iterdir()) if (p / "images").is_dir() and (p / "labels").is_dir()]
+        if projects:
+            raise SystemExit(
+                f"--src {src} holds {len(projects)} project folders ({', '.join(projects[:3])}"
+                f"{', ...' if len(projects) > 3 else ''}), not one dataset. Combine them first with "
+                "combine_label_studio_projects.py, then pass the combined folder as --src."
+            )
+        raise SystemExit(f"--src {src} has no images/ and labels/ folders.")
+
+    classes_txt, notes_json = src / "classes.txt", src / "notes.json"
+    if classes_txt.is_file() and notes_json.is_file():
+        from_txt = [n for _, n in sorted(load_source_classes(classes_txt).items())]
+        from_json = [n for _, n in sorted(load_source_classes(notes_json).items())]
+        if from_txt != from_json:
+            raise SystemExit(
+                f"classes.txt and notes.json in {src} disagree:\n"
+                f"  classes.txt: {from_txt}\n  notes.json : {from_json}\n"
+                "Choose the right one with --classes (the class ids in the labels follow only one of them)."
+            )
+        classes = classes_txt
+    elif classes_txt.is_file():
+        classes = classes_txt
+    elif notes_json.is_file():
+        classes = notes_json
+    else:
+        classes = next((p for p in (src / "data.yaml", src.parent / "data.yaml") if p.is_file()), None)
+    return src / "images", src / "labels", classes
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Clean a YOLO dataset down to a chosen set of classes and drop images left without annotations."
     )
-    parser.add_argument("--images", type=Path, required=True, help="Source images folder (flat).")
-    parser.add_argument("--labels", type=Path, required=True, help="Source YOLO labels folder (flat).")
+    parser.add_argument(
+        "--src",
+        type=Path,
+        help="Dataset folder: --images, --labels and --classes are worked out from it "
+        "(images/, labels/, classes.txt and/or notes.json). Explicit flags override it.",
+    )
+    parser.add_argument("--images", type=Path, help="Source images folder (flat). Required unless --src is given.")
+    parser.add_argument("--labels", type=Path, help="Source YOLO labels folder (flat). Required unless --src is given.")
     parser.add_argument(
         "--classes",
         type=Path,
-        required=True,
         help="File listing the source dataset's classes. Only 3 formats are accepted: "
-        "classes.txt (.txt), data.yaml (.yaml/.yml) or notes.json (.json).",
+        "classes.txt (.txt), data.yaml (.yaml/.yml) or notes.json (.json). Required unless --src is given.",
     )
     parser.add_argument(
         "--dest",
@@ -283,6 +339,15 @@ def main() -> None:
         help="Replace --dest if it already exists and is not empty.",
     )
     args = parser.parse_args()
+
+    if args.src is not None:
+        src_images, src_labels, src_classes = paths_from_src(args.src.resolve())
+        args.images = args.images or src_images
+        args.labels = args.labels or src_labels
+        args.classes = args.classes or src_classes
+    missing = [flag for flag, value in (("--images", args.images), ("--labels", args.labels), ("--classes", args.classes)) if value is None]
+    if missing:
+        raise SystemExit(f"Missing {', '.join(missing)}: give them, or give --src with the dataset folder.")
 
     images_dir = args.images.resolve()
     labels_dir = args.labels.resolve()
